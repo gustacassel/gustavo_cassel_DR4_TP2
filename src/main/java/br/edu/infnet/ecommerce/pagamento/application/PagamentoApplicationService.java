@@ -8,6 +8,7 @@ import br.edu.infnet.ecommerce.pagamento.domain.FormaPagamento;
 import br.edu.infnet.ecommerce.pagamento.domain.NumeroCartao;
 import br.edu.infnet.ecommerce.pagamento.domain.Pagamento;
 import br.edu.infnet.ecommerce.pagamento.domain.PagamentoRepository;
+import br.edu.infnet.ecommerce.shared.domain.DomainEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,15 +18,18 @@ public class PagamentoApplicationService {
     private final PedidoIntegracao pedidoIntegracao;
     private final ProcessadorCartaoPort processadorCartaoPort;
     private final PagamentoRepository pagamentoRepository;
+    private final DomainEventPublisher domainEventPublisher;
 
     public PagamentoApplicationService(
             PedidoIntegracao pedidoIntegracao,
             ProcessadorCartaoPort processadorCartaoPort,
-            PagamentoRepository pagamentoRepository
+            PagamentoRepository pagamentoRepository,
+            DomainEventPublisher domainEventPublisher
     ) {
         this.pedidoIntegracao = pedidoIntegracao;
         this.processadorCartaoPort = processadorCartaoPort;
         this.pagamentoRepository = pagamentoRepository;
+        this.domainEventPublisher = domainEventPublisher;
     }
 
     @Transactional
@@ -53,6 +57,10 @@ public class PagamentoApplicationService {
         }
 
         Pagamento pagamentoSalvo = pagamentoRepository.salvar(pagamento);
+
+        domainEventPublisher.publicar(pagamento.obterEventos());
+        pagamento.limparEventos();
+
         return PagamentoResultado.de(pagamentoSalvo);
     }
 }

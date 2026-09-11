@@ -1,10 +1,14 @@
 package br.edu.infnet.ecommerce.pagamento.domain;
 
+import br.edu.infnet.ecommerce.pagamento.domain.event.PagamentoAprovado;
+import br.edu.infnet.ecommerce.pagamento.domain.event.PagamentoRecusado;
+import br.edu.infnet.ecommerce.shared.domain.AggregateRoot;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /** Aggregate Root do contexto de Pagamento. */
-public class Pagamento {
+public class Pagamento extends AggregateRoot {
 
     private final Long id;
     private final Long pedidoId;
@@ -52,17 +56,16 @@ public class Pagamento {
         String numeroCartaoMascarado = numeroCartao != null ? numeroCartao.mascarado() : null;
         String motivoRecusa = regraDeRecusa(valor, formaPagamento, numeroCartao);
 
-        if (motivoRecusa != null) {
-            return new Pagamento(
-                    null, pedidoId, usuarioId, valor, formaPagamento, numeroCartaoMascarado,
-                    StatusPagamento.RECUSADO, motivoRecusa, null, LocalDateTime.now()
-            );
-        }
-
-        return new Pagamento(
+        Pagamento pagamento = new Pagamento(
                 null, pedidoId, usuarioId, valor, formaPagamento, numeroCartaoMascarado,
                 null, null, null, null
         );
+
+        if (motivoRecusa != null) {
+            pagamento.recusar(motivoRecusa);
+        }
+
+        return pagamento;
     }
 
     public static Pagamento reidratar(
@@ -122,6 +125,8 @@ public class Pagamento {
         this.status = StatusPagamento.APROVADO;
         this.codigoAutorizacao = Objects.requireNonNull(codigoAutorizacao, "codigoAutorizacao é obrigatório");
         this.processadoEm = LocalDateTime.now();
+
+        registrarEvento(new PagamentoAprovado(pedidoId, usuarioId, this.codigoAutorizacao, this.processadoEm));
     }
 
     public void recusar(String motivo) {
@@ -132,6 +137,8 @@ public class Pagamento {
         this.status = StatusPagamento.RECUSADO;
         this.motivoRecusa = motivo;
         this.processadoEm = LocalDateTime.now();
+
+        registrarEvento(new PagamentoRecusado(pedidoId, usuarioId, this.motivoRecusa, this.processadoEm));
     }
 
     public Long getId() {
